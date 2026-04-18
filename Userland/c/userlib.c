@@ -1,10 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "../c/include/userlib.h"
-#include "../tron/include/tron_main.h"
 #include "../c/include/shell.h"
-
-static void tron_command_wrapper(void);
 
 static Command commands[] = {
     {"help", help},
@@ -19,14 +16,10 @@ static Command commands[] = {
     {"bmCPU", bmCPU},
     {"bmMEM", bmMEM},
     {"bmKEY", bmKEY},
-    {"tron", tron_command_wrapper},
     {0, 0},
 };
 
-static void tron_command_wrapper(void){
-    sys_clear();
-    (void)tron_main();
-}
+
 RedrawStruct redrawBuffer[REDRAW_BUFF];
 uint32_t redrawLength = 0;
 void redraw_reset(void){
@@ -341,7 +334,6 @@ void help(){
     shellPrintString("bmCPU     ->   benchmark de CPU.\n");
     shellPrintString("bmMEM     ->   benchmark de MEM.\n");
     shellPrintString("bmKEY     ->   benchmark de teclado.\n");
-    shellPrintString("tron      ->   inicia el juego TRON.\n");
 }
 
 // Limpia la pantalla

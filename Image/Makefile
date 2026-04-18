@@ -27,7 +27,10 @@ endif
 $(KERNEL):
 	cd ../Kernel; make
 
-$(PACKEDKERNEL): $(KERNEL) $(USERLAND)
+$(MP):
+	$(MAKE) -C ../Toolchain all
+
+$(PACKEDKERNEL): $(MP) $(KERNEL) $(USERLAND)
 	$(MP) $(KERNEL) $(USERLAND) -o $(PACKEDKERNEL)
 
 $(IMG): $(BMFS) $(MBR) $(PURE64) $(PACKEDKERNEL)

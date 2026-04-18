@@ -1,7 +1,7 @@
 
 TARGET ?= qemu
 
-all:  bootloader kernel userland image
+all:  bootloader kernel userland toolchain image
 
 bootloader:
 	cd Bootloader; make all
@@ -12,7 +12,10 @@ kernel:
 userland:
 	cd Userland; make all
 
-image: kernel bootloader userland
+toolchain:
+	cd Toolchain; make all
+
+image: kernel bootloader userland toolchain
 	$(MAKE) -C Image TARGET=$(TARGET) all
 
 # Convenience targets for explicit images
@@ -29,6 +32,7 @@ clean:
 	cd Bootloader; make clean
 	cd Image; make clean
 	cd Kernel; make clean
+	cd Toolchain; make clean
 	cd Userland; make clean
 
-.PHONY: bootloader image collections kernel userland all clean
+.PHONY: bootloader image collections kernel userland toolchain all clean
