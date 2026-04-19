@@ -8,6 +8,7 @@
 #define USERLIB_H
 
 #include <stdint.h>
+#include <memoryManager.h>
 
 #define STDOUT 1
 #define STDERR 2
@@ -82,5 +83,8 @@ void bmMEM(void);
 void bmCPU(void);
 void bmFPS(void);
 void bmKEY(void);
+void *sys_malloc(uint64_t size);
+void sys_free(void *ptr);
+void sys_mem_status(MemStatus *status);
 
 #endif

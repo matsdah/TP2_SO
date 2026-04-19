@@ -5,6 +5,22 @@
 #include "defs.h"
 #include "time.h"
 #include "sound.h"
+#include "memoryManager.h"
+
+// Syscall 16: malloc
+uint64_t sys_malloc(uint64_t size) {
+    return (uint64_t)mm_malloc(size);
+}
+
+// Syscall 17: free
+void sys_free(uint64_t ptr) {
+    mm_free((void *)ptr);
+}
+
+// Syscall 18: mem status
+void sys_mem_status(uint64_t statusPtr) {
+    mm_status((MemStatus *)statusPtr);
+}
 
 // Aumenta el tamaño de fuente por defecto
 void sys_increase_fontsize(){
@@ -96,5 +112,8 @@ void * syscalls[CANT_SYS] = {
     &sys_screen_width,      // 12
     &sys_screen_height,     // 13
     &sys_putpixel,          // 14
-    &sys_fill_rect          // 15
+    &sys_fill_rect,         // 15
+    &sys_malloc,            // 16
+    &sys_free,              // 17
+    &sys_mem_status         // 18
 };

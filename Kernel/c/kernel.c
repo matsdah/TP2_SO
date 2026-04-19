@@ -4,6 +4,9 @@
 #include "idtLoader.h"
 #include "kernelApi.h"
 
+#define HEAP_START  0x600000
+#define HEAP_SIZE   (8 * 1024 * 1024)  // 8 MB
+
 extern uint8_t text;
 extern uint8_t rodata;
 extern uint8_t data;
@@ -38,11 +41,16 @@ void * getStackBase(void){
 
 // Carga módulos, limpia BSS e inicializa la IDT
 void * initializeKernelBinary(void){
+
 	void * moduleAddresses[] = {sampleCodeModuleAddress, sampleDataModuleAddress};
 
 	loadModules(&endOfKernelBinary, moduleAddresses);
 	clearBSS(&bss, &endOfKernel - &bss);
 	load_idt();
+
+	// Inicilizacion del administrador de memoria
+	mm_init((void *)HEAP_START, HEAP_SIZE);
+	
 	return getStackBase();
 }
 

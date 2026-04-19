@@ -15,8 +15,26 @@ GLOBAL sys_screen_height
 GLOBAL sys_putpixel
 GLOBAL sys_fill_rect
 GLOBAL gen_invalid_opcode
+GLOBAL sys_malloc
+GLOBAL sys_free
+GLOBAL sys_mem_status
 
 section .text
+
+sys_malloc:
+    mov rax, 16
+    int 0x80
+    ret
+
+sys_free:
+    mov rax, 17
+    int 0x80
+    ret
+
+sys_mem_status:
+    mov rax, 18
+    int 0x80
+    ret
 
 sys_registers:
 	mov rax, 0
