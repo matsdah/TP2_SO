@@ -29,7 +29,7 @@ image-usb: TARGET=usb
 image-usb: image
 
 buddy:
-    $(MAKE) MM=BUDDY all
+	$(MAKE) MM=BUDDY all
 
 clean:
 	cd Bootloader; make clean

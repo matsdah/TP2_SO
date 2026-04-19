@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// Estructura para reportar el estado de la memoria
+// Estructura para reportar el estado de la memoria. Ambos managers deben usar la misma estructura.
 typedef struct {
     uint64_t total;         // Bytes totales administrados
     uint64_t used;          // Bytes actualmente asignados
