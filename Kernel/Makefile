@@ -27,14 +27,14 @@ $(LOADEROBJECT):
 MM ?= FF
 
 ifeq ($(MM), BUDDY)
-	MM_SRC = c/memoryManagerBuddy.c
+    MM_SRC = c/memoryManager/memoryManagerBuddy.c
     MM_FLAG = -DMM_BUDDY
 else
-    MM_SRC = c/memoryManagerFF.c
+    MM_SRC = c/memoryManager/memoryManagerFF.c
     MM_FLAG = -DMM_FF
 endif
 
-SOURCES=$(filter-out c/memoryManagerFF.c c/memoryManagerBuddy.c, $(wildcard c/*.c c/drivers/*.c)) $(MM_SRC)
+SOURCES=$(wildcard c/*.c c/drivers/*.c) $(MM_SRC)
 
 clean:
 	rm -rf asm/*.o c/*.o c/drivers/*.o *.o *.bin

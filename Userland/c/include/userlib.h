@@ -86,5 +86,6 @@ void bmKEY(void);
 void *sys_malloc(uint64_t size);
 void sys_free(void *ptr);
 void sys_mem_status(MemStatus *status);
+void testMM(void);
 
 #endif

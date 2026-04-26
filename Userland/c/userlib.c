@@ -16,6 +16,7 @@ static Command commands[] = {
     {"bmCPU", bmCPU},
     {"bmMEM", bmMEM},
     {"bmKEY", bmKEY},
+    {"testMM", testMM},
     {0, 0},
 };
 
@@ -334,6 +335,7 @@ void help(){
     shellPrintString("bmCPU     ->   benchmark de CPU.\n");
     shellPrintString("bmMEM     ->   benchmark de MEM.\n");
     shellPrintString("bmKEY     ->   benchmark de teclado.\n");
+    shellPrintString("testMM    ->   test del memory manager.\n");
 }
 
 // Limpia la pantalla
