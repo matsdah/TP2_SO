@@ -3,6 +3,7 @@
 #include "moduleLoader.h"
 #include "idtLoader.h"
 #include "kernelApi.h"
+#include "memoryManager.h"
 
 #define HEAP_START  0x600000
 #define HEAP_SIZE   (8 * 1024 * 1024)  // 8 MB

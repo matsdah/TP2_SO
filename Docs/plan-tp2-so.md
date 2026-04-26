@@ -8,11 +8,11 @@ Ya se cuenta con: kernel 64-bit, IDT/IRQs, driver de video (framebuffer VBE), dr
 
 ## Paso 0 - Preparacion del entorno
 
-- [ ] Limpiar binarios y `.o` del repositorio (el enunciado prohibe binarios en el repo).
-- [ ] Configurar el entorno de compilacion con la imagen Docker de la catedra: `agodio/itba-so-multiarch:3.1`.
-- [ ] Ajustar los Makefiles para que `make` / `make all` solo compilen (sin lanzar QEMU ni Docker). Separar reglas de ejecucion.
-- [ ] Agregar soporte para compilacion condicional del memory manager: `make` (MM elegido) vs `make buddy` (Buddy System), usando flags `-D` y `#ifdef`.
-- [ ] Verificar que todo compile con `-Wall` sin warnings desde el principio.
+- [x] Limpiar binarios y `.o` del repositorio (el enunciado prohibe binarios en el repo).
+- [x] Configurar el entorno de compilacion con la imagen Docker de la catedra: `agodio/itba-so-multiarch:3.1`.
+- [x] Ajustar los Makefiles para que `make` / `make all` solo compilen (sin lanzar QEMU ni Docker). Separar reglas de ejecucion.
+- [x] Agregar soporte para compilacion condicional del memory manager: `MM=FF ./compile.sh` vs `MM=BUDDY ./compile.sh`, usando flags `-DMM_FF` / `-DMM_BUDDY` en el Makefile.
+- [x] Verificar que todo compile con `-Wall` sin warnings desde el principio.
 
 ---
 
@@ -21,35 +21,35 @@ Ya se cuenta con: kernel 64-bit, IDT/IRQs, driver de video (framebuffer VBE), dr
 **Dependencias:** ninguna (es la base para todo lo demas).
 
 ### 1.1 Definir la interfaz comun del memory manager
-- [ ] Crear un header compartido (ej. `memoryManager.h`) con la interfaz que ambas implementaciones deben respetar:
+- [x] Crear un header compartido (ej. `memoryManager.h`) con la interfaz que ambas implementaciones deben respetar:
   - `void mm_init(void *start, uint64_t size)` - inicializar el memory manager con un bloque de memoria.
   - `void *mm_malloc(uint64_t size)` - reservar memoria.
   - `void mm_free(void *ptr)` - liberar memoria.
   - `void mm_status(MemStatus *status)` - consultar estado (total, ocupada, libre).
 
 ### 1.2 Implementar el memory manager elegido por el grupo
-- [ ] Elegir e implementar un algoritmo (ej. first-fit con lista enlazada de bloques libres, o bitmap).
-- [ ] Debe soportar `malloc` y `free`.
-- [ ] Testear de forma aislada antes de conectar con el resto.
+- [x] Elegir e implementar un algoritmo (ej. first-fit con lista enlazada de bloques libres, o bitmap).
+- [x] Debe soportar `malloc` y `free`.
+- [x] Testear de forma aislada antes de conectar con el resto.
 
 ### 1.3 Implementar Buddy System
-- [ ] Implementar el buddy system como alternativa.
-- [ ] Misma interfaz que el MM anterior.
+- [x] Implementar el buddy system como alternativa.
+- [x] Misma interfaz que el MM anterior.
 
 ### 1.4 Compilacion condicional
-- [ ] Usar `#ifdef MM_BUDDY` / `#else` (o similar) para elegir entre las dos implementaciones.
-- [ ] Verificar que `make` compila con una y `make buddy` con la otra.
+- [x] Usar `#ifdef MM_BUDDY` / `#else` (o similar) para elegir entre las dos implementaciones.
+- [x] Verificar que `make` compila con una y `make buddy` con la otra.
 
 ### 1.5 Syscalls de memoria
-- [ ] Agregar syscalls nuevas:
+- [x] Agregar syscalls nuevas:
   - `sys_malloc(size)` -> devuelve puntero.
   - `sys_free(ptr)` -> libera bloque.
   - `sys_mem_status()` -> devuelve info del estado de la memoria.
-- [ ] Registrar las syscalls en la tabla `syscalls[]` del kernel y crear los wrappers en `userlib.asm`.
+- [x] Registrar las syscalls en la tabla `syscalls[]` del kernel y crear los wrappers en `userlib.asm`.
 
 ### 1.6 Test
-- [ ] Integrar `test_mm` (provisto por la catedra) como programa de usuario.
-- [ ] Verificar que pase sin errores con al menos uno de los dos MM.
+- [x] Integrar `test_mm` (provisto por la catedra) como programa de usuario.
+- [x] Verificar que pase sin errores con al menos uno de los dos MM. (20 OK / 0 FAIL con First-Fit)
 
 ---
 

@@ -26,3 +26,4 @@ docker exec -u root "${NAME}" bash -lc \
 	"cd /root && make clean || true && cd Toolchain && make clean || true && make all || exit 1 && cd /root && make TARGET=\"${TARGET_ARG}\" all"
 
 echo "Compilación finalizada."
+
