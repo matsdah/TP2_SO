@@ -24,13 +24,14 @@ Compilar todo (bootloader, kernel, userland e imagen):
 
 Arrancar en QEMU:
   $ ./run.sh                 # usa Image/x64BareBonesImage.qcow2
-  $ ./run.sh --qemu          # equivalente
 
 Construir y correr con helper script:
-  $ ./comRun.sh qemu         # build + ejecutar en QEMU
-  $ ./comRun.sh vbox         # build VMDK y mostrar pasos para VirtualBox
-  $ ./comRun.sh usb          # build .img y mostrar comando dd (no se ejecuta)
+  $ ./run.sh qemu         # build + ejecutar en QEMU
+  $ ./run.sh vbox         # build VMDK y mostrar pasos para VirtualBox
+  $ ./run.sh usb          # build .img y mostrar comando dd (no se ejecuta)
 
+Si no hay permisos para ejecutar ./run.sh:
+  $ sudo chown $USER Image/x64BareBonesImage.qcow2
 
 Salida e imagenes generadas:
 - `Image/x64BareBonesImage.img` cruda (también VMDK y QCOW2 para VMs).

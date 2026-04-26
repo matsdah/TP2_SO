@@ -3,7 +3,14 @@
 #include "../include/naiveConsole.h"
 #include "../include/defs.h"
 #include "../include/lib.h"
+#include "../include/process.h"
 #include <stdint.h>
+
+static PCB *kbd_waiting_process = NULL;
+
+void kbd_set_waiting(struct PCB *p) {
+    kbd_waiting_process = p;
+}
 
 char kbd_min[KBD_LENGTH] = {
     0,  27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b', // backspace
@@ -94,6 +101,12 @@ void handlePressedKey(void){
     } else if(!(scancode & BREAK_CODE)){
         char c = kbd_manager[(shift + caps) % 2][scancode];
         writeBuff(c);
+
+        // Despertar al proceso que esperaba input
+        if (kbd_waiting_process != NULL) {
+            kbd_waiting_process->state = PROCESS_READY;
+            kbd_waiting_process = NULL;
+        }
     }
 }
 

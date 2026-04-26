@@ -14,4 +14,9 @@ uint32_t intToHexa(uint64_t value, char * dest);
 extern uint64_t regsArray[];
 uint8_t kbd_scancode_read(void);
 
+// Registra el proceso que esta bloqueado esperando input de teclado.
+// handlePressedKey lo desbloquea cuando llega un caracter.
+struct PCB;
+void kbd_set_waiting(struct PCB *p);
+
 #endif

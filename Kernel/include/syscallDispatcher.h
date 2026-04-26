@@ -6,6 +6,7 @@
 
 extern void * syscalls[CANT_SYS];
 
+// Syscalls 0-18 (existentes)
 uint64_t sys_write(uint64_t fd, const char * buff, uint64_t count);
 uint64_t sys_read(char * buff, uint64_t count);
 uint64_t sys_registers(char * buff);
@@ -25,5 +26,18 @@ void sys_speaker_off(void);
 uint64_t sys_malloc(uint64_t size);
 void sys_free(uint64_t ptr);
 void sys_mem_status(uint64_t statusPtr);
+
+// Syscalls 19-28 (procesos)
+int64_t  sys_create_process(uint64_t name, uint64_t entry,
+                            uint64_t argc, uint64_t argv, uint64_t fg);
+void     sys_exit(uint64_t retval);
+uint64_t sys_getpid(void);
+uint64_t sys_ps(uint64_t buffer, uint64_t max_count);
+void     sys_kill(uint64_t pid);
+void     sys_nice(uint64_t pid, uint64_t new_priority);
+void     sys_block(uint64_t pid);
+void     sys_unblock(uint64_t pid);
+void     sys_yield(void);
+int64_t  sys_waitpid(uint64_t pid);
 
 #endif

@@ -18,11 +18,16 @@ GLOBAL syscallIntRoutine
 GLOBAL pressed_key
 GLOBAL regsArray
 GLOBAL kbd_scancode_read
+GLOBAL scheduler_start_asm
+
 EXTERN irqDispatcher
 EXTERN int80Dispatcher
 EXTERN exceptionDispatcher
 EXTERN getStackBase
 EXTERN syscalls
+EXTERN scheduler_tick
+EXTERN scheduler_yield_impl
+EXTERN force_switch
 
 SECTION .text
 
@@ -78,8 +83,8 @@ SECTION .text
 %macro exceptionHandler 1
 	pushState
 
-	; Guardar snapshot de registros en una excepción
-	; Layout tras pushState: [r15..rax] luego frame de hardware (RIP,CS,RFLAGS,RSP,SS)
+	; Guardar snapshot de registros en una excepcion
+	; Layout tras pushState: [r15..rax] luego frame de hardware (RIP,CS,RFLAGS)
 	mov     rax, [rsp + 14*8]   ; RAX original
 	mov     [regsArray + 0*8], rax
 	mov     rax, [rsp + 13*8]   ; RBX
@@ -111,26 +116,26 @@ SECTION .text
 	mov     rax, [rsp + 0*8]    ; R15
 	mov     [regsArray + 14*8], rax
 
-	; Frame de hardware
+	; Frame de hardware (ring 0: solo RIP, CS, RFLAGS)
 	mov     rax, [rsp + 15*8]   ; RIP
 	mov     [regsArray + 15*8], rax
 	mov     rax, [rsp + 16*8]   ; CS
 	mov     [regsArray + 16*8], rax
 	mov     rax, [rsp + 17*8]   ; RFLAGS
 	mov     [regsArray + 17*8], rax
-	mov     rax, [rsp + 18*8]   ; RSP (si aplica)
-	mov     [regsArray + 18*8], rax
-	mov     rax, [rsp + 19*8]   ; SS (si aplica)
-	mov     [regsArray + 19*8], rax
-	mov rdi, %1 
+	; Los slots 18 y 19 (RSP/SS) no aplican en ring 0, quedan en 0
+	mov     qword [regsArray + 18*8], 0
+	mov     qword [regsArray + 19*8], 0
+
+	mov rdi, %1
 	mov rsi, rsp
 	call exceptionDispatcher
 
-popState
-	call getStackBase	
+	popState
+	call getStackBase
 
-	mov qword [rsp+8*3], rax				
-	mov qword [rsp], userland	
+	mov qword [rsp+8*3], rax
+	mov qword [rsp], userland
 	iretq
 %endmacro
 
@@ -148,8 +153,6 @@ _sti:
 	ret
 
 ; C-callable wrapper to load IDT without using inline asm in C
-; void load_idt_asm(void *idtr);
-; SysV AMD64: first arg in RDI -> pointer to IDTR descriptor (10 bytes)
 load_idt_asm:
 	lidt    [rdi]
 	ret
@@ -165,32 +168,40 @@ picMasterMask:
 picSlaveMask:
 	push    rbp
     	mov     rbp, rsp
-    	mov     ax, di 
+    	mov     ax, di
     	out	   0A1h, al
     	pop     rbp
     	retn
 
-;8254 Timer (Timer Tick)
+; ─── Timer IRQ0: context switch preemptivo ────────────────────────────────────
+; scheduler_tick(current_rsp) guarda el RSP actual, elige el siguiente proceso
+; y devuelve su RSP en RAX. Hacemos el swap de RSP aqui en ASM.
 _irq00Handler:
-	irqHandlerMaster 0
+	pushState
+
+	mov rdi, rsp
+	call scheduler_tick     ; retorna RSP del proximo proceso
+	mov rsp, rax            ; cambiar al stack del proximo proceso
+
+	mov al, 20h
+	out 20h, al             ; EOI al PIC master
+
+	popState
+	iretq
 
 ;Keyboard
 ; IRQ1 - Teclado: captura scancode y opcionalmente snapshot de registros.
 _irq01Handler:
-	; Guardar contexto completo al entrar (para snapshot correcto)
 	pushState
 
-	; Leer scancode y exponerlo a C
 	xor     eax, eax
 	in      al, 0x60
 	mov     [pressed_key], rax
 
-	; Si es la tecla de snapshot (CTRL), copiar contexto salvado
 	cmp     al, SNAPSHOT_KEY
 	jne     .no_snapshot
 
-	; Layout tras pushState (desde [rsp]):
-	;  r15, r14, ..., rax (15 regs) | RIP, CS, RFLAGS, RSP, SS
+	; Layout tras pushState: r15..rax (15 regs) | RIP, CS, RFLAGS (frame ring 0)
 	mov     rax, [rsp + 14*8]   ; RAX original
 	mov     [regsArray + 0*8], rax
 	mov     rax, [rsp + 13*8]   ; RBX
@@ -222,20 +233,16 @@ _irq01Handler:
 	mov     rax, [rsp + 0*8]    ; R15
 	mov     [regsArray + 14*8], rax
 
-	; Frame de hardware
 	mov     rax, [rsp + 15*8]   ; RIP
 	mov     [regsArray + 15*8], rax
 	mov     rax, [rsp + 16*8]   ; CS
 	mov     [regsArray + 16*8], rax
 	mov     rax, [rsp + 17*8]   ; RFLAGS
 	mov     [regsArray + 17*8], rax
-	mov     rax, [rsp + 18*8]   ; RSP
-	mov     [regsArray + 18*8], rax
-	mov     rax, [rsp + 19*8]   ; SS
-	mov     [regsArray + 19*8], rax
+	mov     qword [regsArray + 18*8], 0
+	mov     qword [regsArray + 19*8], 0
 
 .no_snapshot:
-	; Despachar IRQ teclado
 	mov     rdi, 1
 	call    irqDispatcher
 	mov     al, 20h
@@ -267,25 +274,52 @@ _exception0Handler:
 _exception6Handler:
 	exceptionHandler 6
 
+; ─── Syscall gate (int 0x80) ──────────────────────────────────────────────────
+; El retorno de la syscall se escribe en el slot RAX del stack (rsp+14*8)
+; para que popState lo restaure correctamente incluso tras un context switch.
+; Si force_switch==1, se hace un yield voluntario antes de retornar a userland.
 _irq128Handler:
 	pushState
-	; validar índice de syscall (usar el mismo valor que CANT_SYS en defs.h)
-	cmp rax, 19
-	jge .syscall_end
-	call [syscalls + rax * 8]
 
-.syscall_end:
-    mov [aux], rax
-    popState
-    mov rax, [aux]
-    iretq
+	; Validar indice de syscall (debe ser < CANT_SYS, actualizar al cambiar defs.h)
+	cmp rax, 29
+	jge .invalid_syscall
+
+	call [syscalls + rax * 8]
+	mov [rsp + 14*8], rax       ; guardar retorno en el slot RAX del stack
+	jmp .check_yield
+
+.invalid_syscall:
+	mov qword [rsp + 14*8], -1  ; syscall invalida → retornar -1
+
+.check_yield:
+	cmp qword [force_switch], 0
+	je  .no_yield
+
+	mov qword [force_switch], 0
+	mov rdi, rsp
+	call scheduler_yield_impl   ; retorna RSP del proximo proceso
+	mov rsp, rax
+
+.no_yield:
+	popState
+	iretq
+
+; ─── scheduler_start_asm ──────────────────────────────────────────────────────
+; void scheduler_start_asm(uint64_t *rsp)
+; Carga el RSP del primer proceso (pasado en rdi) y lo despacha.
+; No retorna nunca.
+scheduler_start_asm:
+	mov rsp, rdi
+	popState
+	iretq
 
 haltcpu:
 	cli
 	hlt
 	ret
 
-; Lee el scancode almacenado por la ISR y lo limpia (sin requerir calificador especial en C)
+; Lee el scancode almacenado por la ISR y lo limpia
 kbd_scancode_read:
 	push rbp
 	mov rbp, rsp
@@ -297,10 +331,9 @@ kbd_scancode_read:
 
 SECTION .bss
 	aux resq 1
-	; # de registros
-	regsArray resq 20 
+	regsArray resq 20
 	pressed_key resq 1
 	SNAPSHOT_KEY equ 0x1D
 
-SECTION .data 
-	userland equ 0x400000 
+SECTION .data
+	userland equ 0x400000

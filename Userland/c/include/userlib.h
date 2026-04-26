@@ -1,9 +1,6 @@
-// API de solo consumo (userland): wrappers de syscalls y utilitarios mínimos
-// Contrato:
-// - Todas las funciones sys_* invocan al kernel vía int 0x80.
-// - sys_read es no bloqueante (devuelve 0 si no hay input). getchar() bloquea hasta leer 1 byte.
-// - sys_ticks devuelve ticks desde arranque; tiempo/fecha en BCD.
-// - Redraw buffer registra salida para re-render al cambiar tamaño de fuente.
+// API userland: wrappers de syscalls y utilitarios minimos.
+// sys_read es NO bloqueante en nivel bajo; getchar() bloquea.
+// Redraw buffer registra salida para re-render al cambiar tamaño de fuente.
 #ifndef USERLIB_H
 #define USERLIB_H
 
@@ -38,6 +35,19 @@
 #define QUARTER 100
 #define HALF 200
 
+#define MAX_PROCESSES 64
+#define MAX_NAME_LEN  32
+
+// Vista userland de un proceso (misma que kernel ProcessInfo)
+typedef struct {
+    uint64_t pid;
+    char     name[MAX_NAME_LEN];
+    uint8_t  priority;
+    uint8_t  state;
+    uint8_t  foreground;
+    uint64_t rsp;
+} ProcessInfo;
+
 typedef struct{
     char character;
     uint64_t fd;
@@ -45,6 +55,8 @@ typedef struct{
 
 void redraw_reset(void);
 void redraw_append_char(char c, uint64_t fd);
+
+// ─── Syscalls de IO ───────────────────────────────────────────────────────────
 uint64_t sys_write(uint64_t fd, const char * buff, uint64_t count);
 uint64_t sys_read(char * buff, uint64_t count);
 uint64_t sys_registers(char * buff);
@@ -61,11 +73,33 @@ uint64_t sys_screen_width(void);
 uint64_t sys_screen_height(void);
 void sys_putpixel(uint32_t color, uint64_t x, uint64_t y);
 void sys_fill_rect(uint64_t x, uint64_t y, uint64_t w, uint64_t h, uint32_t color);
+
+// ─── Syscalls de memoria ──────────────────────────────────────────────────────
+void *sys_malloc(uint64_t size);
+void sys_free(void *ptr);
+void sys_mem_status(MemStatus *status);
+
+// ─── Syscalls de procesos ─────────────────────────────────────────────────────
+int64_t  sys_create_process(const char *name, void *entry,
+                            int argc, char **argv, uint8_t fg);
+void     sys_exit(int retval);
+uint64_t sys_getpid(void);
+uint64_t sys_ps(ProcessInfo *buffer, uint64_t max_count);
+void     sys_kill(uint64_t pid);
+void     sys_nice(uint64_t pid, uint64_t new_priority);
+void     sys_block(uint64_t pid);
+void     sys_unblock(uint64_t pid);
+void     sys_yield(void);
+int64_t  sys_waitpid(uint64_t pid);
+
+// ─── Utilitarios ─────────────────────────────────────────────────────────────
 uint64_t putchar(char c);
 char getchar(void);
 void processLine(char * buff, uint32_t * history_len);
 uint64_t num_to_str(uint64_t value, char * dest, int base);
 void gen_invalid_opcode(void);
+
+// ─── Comandos de shell ────────────────────────────────────────────────────────
 void help(void);
 void clear(void);
 void registers(void);
@@ -83,9 +117,7 @@ void bmMEM(void);
 void bmCPU(void);
 void bmFPS(void);
 void bmKEY(void);
-void *sys_malloc(uint64_t size);
-void sys_free(void *ptr);
-void sys_mem_status(MemStatus *status);
 void testMM(void);
+void ps(void);
 
 #endif

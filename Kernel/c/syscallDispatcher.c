@@ -6,49 +6,58 @@
 #include "time.h"
 #include "sound.h"
 #include "memoryManager.h"
+#include "process.h"
+#include "scheduler.h"
 
-// Syscall 16: malloc
+// ─── Syscalls de memoria (16-18) ──────────────────────────────────────────────
+
 uint64_t sys_malloc(uint64_t size) {
     return (uint64_t)mm_malloc(size);
 }
 
-// Syscall 17: free
 void sys_free(uint64_t ptr) {
     mm_free((void *)ptr);
 }
 
-// Syscall 18: mem status
 void sys_mem_status(uint64_t statusPtr) {
     mm_status((MemStatus *)statusPtr);
 }
 
-// Aumenta el tamaño de fuente por defecto
-void sys_increase_fontsize(){
+// ─── Syscalls de video/teclado ────────────────────────────────────────────────
+
+void sys_increase_fontsize(void){
     increaseFontSize();
 }
-void sys_decrease_fontsize(){
+void sys_decrease_fontsize(void){
     decreaseFontSize();
 }
 
-// Limpia la pantalla en modo gráfico (negro)
-void sys_clear(){
+void sys_clear(void){
     clearScreen(0x000000);
 }
 
-// Escribe 'count' bytes en la salida indicada (texto gráfico)
 uint64_t sys_write(uint64_t fd, const char * buff, uint64_t count){
     (void)fd;
     uint32_t color = 0xFFFFFF;
-
     for(uint64_t i = 0; i < count; i++){
         videoPutChar((uint8_t)buff[i], color);
     }
-
     return count;
 }
 
+// sys_read: si no hay tecla disponible, bloquea el proceso actual y cede CPU.
+// Cuando el teclado despierte al proceso, userland reintentara la llamada.
 uint64_t sys_read(char * buff, uint64_t count){
-   return readKeyBuff(buff, count);
+    uint64_t n = readKeyBuff(buff, count);
+    if (n == 0) {
+        PCB *cur = process_current();
+        if (cur != NULL) {
+            kbd_set_waiting(cur);
+            cur->state = PROCESS_BLOCKED;
+            force_switch = 1;
+        }
+    }
+    return n;
 }
 
 void sys_date(uint8_t * buff){
@@ -63,12 +72,11 @@ uint64_t sys_registers(char * buff){
     return copyRegistersBuffer(buff);
 }
 
-void sys_beep(uint32_t freq, uint64_t time){
-    beep(freq, time);
+void sys_beep(uint32_t freq, uint64_t ticks){
+    beep(freq, ticks);
 }
 
-// Retorna el contador de ticks desde el arranque
-uint64_t sys_ticks(){
+uint64_t sys_ticks(void){
     return deltaTicks();
 }
 
@@ -76,15 +84,15 @@ void sys_speaker_start(uint32_t freq){
     startSpeaker(freq);
 }
 
-void sys_speaker_off(){
+void sys_speaker_off(void){
     turnOff();
 }
 
-uint64_t sys_screen_width(){
+uint64_t sys_screen_width(void){
     return (uint64_t)getScreenWidth();
 }
 
-uint64_t sys_screen_height(){
+uint64_t sys_screen_height(void){
     return (uint64_t)getScreenHeight();
 }
 
@@ -95,6 +103,60 @@ void sys_putpixel(uint32_t color, uint64_t x, uint64_t y){
 void sys_fill_rect(uint64_t x, uint64_t y, uint64_t w, uint64_t h, uint32_t color){
     fillRect(x, y, w, h, color);
 }
+
+// ─── Syscalls de procesos (19-28) ─────────────────────────────────────────────
+
+int64_t sys_create_process(uint64_t name, uint64_t entry,
+                           uint64_t argc, uint64_t argv, uint64_t fg) {
+    return (int64_t)process_create((const char *)name,
+                                   (ProcessEntry)entry,
+                                   (int)argc,
+                                   (char **)argv,
+                                   (uint8_t)fg);
+}
+
+void sys_exit(uint64_t retval) {
+    process_exit((int)retval);
+}
+
+uint64_t sys_getpid(void) {
+    PCB *cur = process_current();
+    return (cur != NULL) ? cur->pid : 0;
+}
+
+uint64_t sys_ps(uint64_t buffer, uint64_t max_count) {
+    return process_ps((ProcessInfo *)buffer, max_count);
+}
+
+void sys_kill(uint64_t pid) {
+    process_kill(pid);
+}
+
+void sys_nice(uint64_t pid, uint64_t new_priority) {
+    process_nice(pid, (uint8_t)new_priority);
+}
+
+void sys_block(uint64_t pid) {
+    process_block(pid);
+}
+
+void sys_unblock(uint64_t pid) {
+    process_unblock(pid);
+}
+
+void sys_yield(void) {
+    PCB *cur = process_current();
+    if (cur != NULL) {
+        cur->state = PROCESS_READY;
+        force_switch = 1;
+    }
+}
+
+int64_t sys_waitpid(uint64_t pid) {
+    return (int64_t)process_waitpid(pid);
+}
+
+// ─── Tabla de syscalls ────────────────────────────────────────────────────────
 
 void * syscalls[CANT_SYS] = {
     &sys_registers,         // 0
@@ -115,5 +177,15 @@ void * syscalls[CANT_SYS] = {
     &sys_fill_rect,         // 15
     &sys_malloc,            // 16
     &sys_free,              // 17
-    &sys_mem_status         // 18
+    &sys_mem_status,        // 18
+    &sys_create_process,    // 19
+    &sys_exit,              // 20
+    &sys_getpid,            // 21
+    &sys_ps,                // 22
+    &sys_kill,              // 23
+    &sys_nice,              // 24
+    &sys_block,             // 25
+    &sys_unblock,           // 26
+    &sys_yield,             // 27
+    &sys_waitpid,           // 28
 };

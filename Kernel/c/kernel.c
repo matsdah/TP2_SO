@@ -4,6 +4,9 @@
 #include "idtLoader.h"
 #include "kernelApi.h"
 #include "memoryManager.h"
+#include "process.h"
+#include "scheduler.h"
+#include "interrupts.h"
 
 #define HEAP_START  0x600000
 #define HEAP_SIZE   (8 * 1024 * 1024)  // 8 MB
@@ -18,40 +21,51 @@ static const uint64_t PageSize = 0x1000;
 static void * const sampleCodeModuleAddress = (void*)0x400000;
 static void * const sampleDataModuleAddress = (void*)0x500000;
 
-typedef int (*EntryPoint)(void);
-
-// Punto de entrada del kernel: transfiere control al módulo de usuario
-int main(void){
-	((EntryPoint)sampleCodeModuleAddress)();
-	return 0;
+// Proceso idle: ejecuta hlt en loop. Siempre READY, nunca se bloquea.
+static void idle_entry(int argc, char **argv) {
+    (void)argc; (void)argv;
+    while (1)
+        _hlt();
 }
 
-// Limpia la sección BSS del kernel
+// Punto de entrada del kernel: arranca el scheduler (nunca retorna)
+int main(void) {
+    scheduler_start();
+    // Si scheduler_start retorna (no deberia), quedar en loop
+    while (1) _hlt();
+    return 0;
+}
+
 void clearBSS(void * bssAddress, uint64_t bssSize){
-	memset(bssAddress, 0, bssSize);
+    memset(bssAddress, 0, bssSize);
 }
 
-// Calcula la base de la pila del kernel
 void * getStackBase(void){
-	return (void*)(
-		(uint64_t)&endOfKernel
-		+ PageSize * 8	
-		- sizeof(uint64_t)
-	);
+    return (void*)(
+        (uint64_t)&endOfKernel
+        + PageSize * 8
+        - sizeof(uint64_t)
+    );
 }
 
-// Carga módulos, limpia BSS e inicializa la IDT
+// Carga modulos, inicializa subsistemas y crea los procesos iniciales
 void * initializeKernelBinary(void){
+    void * moduleAddresses[] = {sampleCodeModuleAddress, sampleDataModuleAddress};
 
-	void * moduleAddresses[] = {sampleCodeModuleAddress, sampleDataModuleAddress};
+    loadModules(&endOfKernelBinary, moduleAddresses);
+    clearBSS(&bss, &endOfKernel - &bss);
+    load_idt();
 
-	loadModules(&endOfKernelBinary, moduleAddresses);
-	clearBSS(&bss, &endOfKernel - &bss);
-	load_idt();
+    mm_init((void *)HEAP_START, HEAP_SIZE);
 
-	// Inicilizacion del administrador de memoria
-	mm_init((void *)HEAP_START, HEAP_SIZE);
-	
-	return getStackBase();
+    process_init();
+    scheduler_init();
+
+    // Crear proceso idle primero (siempre en la posicion 0 de la cola)
+    process_create("idle", idle_entry, 0, NULL, 0);
+
+    // Crear la shell como proceso foreground
+    process_create("shell", (ProcessEntry)sampleCodeModuleAddress, 0, NULL, 1);
+
+    return getStackBase();
 }
-
