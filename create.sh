@@ -4,8 +4,8 @@ set -euo pipefail
 # Crea (si hace falta) y arranca un contenedor Docker de desarrollo.
 # Monta el directorio actual en /root dentro del contenedor.
 
-IMAGE="agodio/itba-so:2.0"
-NAME="TP_ARQUI_04"
+IMAGE="agodio/itba-so-multiarch:3.1"
+NAME="TP_SO_2"
 
 if ! command -v docker >/dev/null 2>&1; then
 	echo "Docker no está instalado o no está en PATH. Instale Docker y vuelva a intentarlo."
