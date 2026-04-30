@@ -12,3 +12,6 @@
 
 .bash_history
 *.md
+
+#Docs
+*.pdf
