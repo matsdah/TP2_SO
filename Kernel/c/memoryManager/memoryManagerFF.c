@@ -16,8 +16,11 @@ typedef struct MemBlock {
 static MemBlock *heap_start = NULL;
 
 void mm_init(void *start, uint64_t size) {
-    if (size <= sizeof(MemBlock))
+    // Si el espacio es demasiado pequeño para contener al menos un bloque, no se inicializa
+    if (size <= sizeof(MemBlock)){
         return;
+    }
+    // Inicializar el heap con un bloque unico que ocupa todo el espacio disponible
     heap_start = (MemBlock *)start;
     heap_start->size = size - sizeof(MemBlock);
     heap_start->is_free = 1;
