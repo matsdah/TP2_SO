@@ -277,11 +277,10 @@ _exception6Handler:
 ; ─── Syscall gate (int 0x80) ──────────────────────────────────────────────────
 ; El retorno de la syscall se escribe en el slot RAX del stack (rsp+14*8)
 ; para que popState lo restaure correctamente incluso tras un context switch.
-; Si force_switch==1, se hace un yield voluntario antes de retornar a userland.
+; Si force_switch == 1, se hace un yield voluntario antes de retornar a userland.
 _irq128Handler:
 	pushState
 
-	; Validar indice de syscall (debe ser < CANT_SYS, actualizar al cambiar defs.h)
 	cmp rax, 29
 	jge .invalid_syscall
 
