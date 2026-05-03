@@ -25,18 +25,25 @@ void print_status(MemStatus *s){
 void check(int cond, const char* msg){
     if(cond){
         shellPrintString("  [OK]   ");
+        shellPrintString((char*)msg);
         g_passed++;
     }else{
         shellPrintString("  [FAIL] ");
+        shellPrintString((char*)msg);
         g_failed++;
+
+        shellPrintString("// Estado actual tras fallo: ");
+        MemStatus s;
+        sys_mem_status(&s);
+        print_status(&s);
+
     }
 
-    shellPrintString((char*)msg);
     shellPrintString("\n");
 }
 
 /* Test 1: Alocacion basica, escritura y lectura */
-void test_basic(){
+void test_basic(void){
     shellPrintString("\n-- Test 1: Basico --\n");
 
     void* p = sys_malloc(MALLOC_TEST_SIZE);
@@ -70,7 +77,7 @@ void test_basic(){
 }
 
 /* Test 2: Multiples alocaciones sin solapamiento */
-void test_multiple(){
+void test_multiple(void){
     shellPrintString("\n-- Test 2: Multiples alocaciones --\n");
 
     void* ptrs[N];
@@ -129,7 +136,7 @@ void test_multiple(){
 }
 
 /* Test 3: Coalescencia - liberar en orden inverso. */
-void test_coalescing(){
+void test_coalescing(void){
     shellPrintString("\n-- Test 3: Coalescencia --\n");
 
     void* ptrs[M];
@@ -153,7 +160,7 @@ void test_coalescing(){
 }
 
 /* Test 4: Casos limite */
-void test_edge(){
+void test_edge(void){
     shellPrintString("\n-- Test 4: Edge cases --\n");
 
     void* p = sys_malloc(0);
@@ -177,7 +184,7 @@ void test_edge(){
 }
 
 /* Test 5: Stress - llenar el heap y vaciarlo */
-void test_stress(){
+void test_stress(void){
     shellPrintString("\n-- Test 5: Stress --\n");
 
     /* static para no saturar el stack. */
@@ -214,7 +221,7 @@ void test_stress(){
     check(s.used + s.free == s.total, "used + free == total tras vaciado.");
 }
 
-void testMM(){
+void testMM(void){
     g_passed = 0;
     g_failed = 0;
 
