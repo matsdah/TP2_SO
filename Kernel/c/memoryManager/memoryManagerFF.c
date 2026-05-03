@@ -5,96 +5,116 @@
 #include <stddef.h>
 
 typedef struct MemBlock {
-    uint64_t size;              // Tamano del bloque (sin contar el header)
-    int is_free;                // 1 si esta libre, 0 si esta asignado
-    struct MemBlock *next;      // Siguiente bloque en la lista
+    uint64_t size;              /* Tamano del bloque (sin contar el header) */ 
+    int is_free;                /* 1 si esta libre, 0 si esta asignado */
+    struct MemBlock* next;      /* Siguiente bloque en la lista */
 } MemBlock;
 
-// Tamano minimo de payload restante para que valga la pena splitear
+/* Tamano minimo para que valga la pena splitear el bloque de memoria libre. */ 
 #define MIN_SPLIT (sizeof(MemBlock) + 8)
 
-static MemBlock *heap_start = NULL;
+static MemBlock* heap_start = NULL;
 
-void mm_init(void *start, uint64_t size) {
-    // Si el espacio es demasiado pequeño para contener al menos un bloque, no se inicializa
-    if (size <= sizeof(MemBlock)){
+void mm_init(void *start, uint64_t size){
+
+    if(size <= sizeof(MemBlock)){
+        /* Si el espacio es demasiado pequeño para contener al menos un bloque, no se inicializa. */ 
         return;
     }
-    // Inicializar el heap con un bloque unico que ocupa todo el espacio disponible
+
+    /* Inicializar el heap con un bloque unico que ocupa todo el espacio disponible. */
     heap_start = (MemBlock *)start;
     heap_start->size = size - sizeof(MemBlock);
     heap_start->is_free = 1;
     heap_start->next = NULL;
 }
 
-void *mm_malloc(uint64_t size) {
-    if (size == 0 || heap_start == NULL)
+void *mm_malloc(uint64_t size){
+    if(size == 0 || heap_start == NULL){
         return NULL;
+    }
 
-    // Alinear a 8 bytes para evitar accesos desalineados
+    /* Alinear a 8 bytes para evitar accesos desalineados. */ 
     size = (size + 7) & ~(uint64_t)7;
 
-    MemBlock *block = heap_start;
-    while (block != NULL) {
-        if (block->is_free && block->size >= size) {
-            // Split si sobra suficiente espacio para un bloque nuevo
-            if (block->size >= size + MIN_SPLIT) {
-                MemBlock *split = (MemBlock *)((uint8_t *)(block + 1) + size);
+    MemBlock* block = heap_start;   /* Itero desde donde arranca el heap. */
+
+    while(block != NULL){
+        if(block->is_free && block->size >= size){
+            /* Tengo espacio en el bloque para alocar el size. */
+
+            if (block->size >= size + MIN_SPLIT){
+                /* Split si sobra suficiente espacio para un bloque nuevo. */
+
+                MemBlock* split = (MemBlock *)((uint8_t *)(block + 1) + size);  /* +1 para saltar el header. */
                 split->size = block->size - size - sizeof(MemBlock);
                 split->is_free = 1;
                 split->next = block->next;
                 block->size = size;
                 block->next = split;
             }
+
             block->is_free = 0;
-            return (void *)(block + 1);
+            return (void*)(block + 1);     /* Devuelvo la direccion "allocable" sin header. */
         }
+
+        /* Itero al siguiente bloque. */
         block = block->next;
     }
+
     return NULL;
 }
 
-void mm_free(void *ptr) {
-    if (ptr == NULL)
+void mm_free(void *ptr){
+    if(ptr == NULL){
         return;
+    }
 
-    MemBlock *block = (MemBlock *)ptr - 1;
+    MemBlock* block = (MemBlock*)ptr - 1;   /* Apunto al header del bloque a liberar. */
     block->is_free = 1;
 
-    // Coalescing hacia adelante: absorber bloques libres consecutivos
-    while (block->next != NULL && block->next->is_free) {
+    /* Coalescensia hacia adelante. Absorber bloques libres consecutivos. */ 
+    while(block->next != NULL && block->next->is_free){
+
+        /* Se lo come como el Dibu. */
         block->size += sizeof(MemBlock) + block->next->size;
         block->next = block->next->next;
     }
 
-    // Coalescing hacia atras: si el bloque anterior esta libre, absorber este
-    MemBlock *prev = heap_start;
-    while (prev != NULL && prev->next != block)
+    /* Coalescencia hacia atras. Si el bloque anterior esta libre, absorber este. */ 
+    MemBlock* prev = heap_start;
+    while(prev != NULL && prev->next != block){
         prev = prev->next;
-    if (prev != NULL && prev->is_free) {
+    }
+    
+    if(prev != NULL && prev->is_free){
         prev->size += sizeof(MemBlock) + block->size;
         prev->next = block->next;
     }
 }
 
-void mm_status(MemStatus *status) {
-    if (status == NULL || heap_start == NULL)
+void mm_status(MemStatus* status){
+    if(status == NULL || heap_start == NULL){
         return;
+    }
 
     status->total = 0;
     status->used = 0;
     status->free = 0;
     status->alloc_count = 0;
 
-    MemBlock *block = heap_start;
-    while (block != NULL) {
+    MemBlock* block = heap_start;
+
+    while(block != NULL){
         status->total += block->size;
-        if (block->is_free) {
+
+        if (block->is_free){
             status->free += block->size;
-        } else {
+        }else{
             status->used += block->size;
             status->alloc_count++;
         }
+        /* Avanzo en el heap hacia el siguiente bloque. */
         block = block->next;
     }
 }
