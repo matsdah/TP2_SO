@@ -92,8 +92,7 @@ PCB *process_get(uint64_t pid) {
     return NULL;
 }
 
-int process_create(const char *name, ProcessEntry entry,
-                   int argc, char **argv, uint8_t fg) {
+int process_create(const char *name, ProcessEntry entry, int argc, char **argv, uint8_t fg) {
     // Buscar slot libre
     int slot = -1;
     for (int i = 0; i < MAX_PROCESSES; i++) {

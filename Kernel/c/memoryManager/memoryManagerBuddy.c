@@ -159,11 +159,11 @@ static void *malloc_impl(uint64_t size, int is_kernel){
 }
 
 void *mm_malloc(uint64_t size){
-    return malloc_impl(size, 0);
+    return malloc_impl(size, USER);
 }
 
 void *mm_malloc_kernel(uint64_t size){
-    return malloc_impl(size, 1);
+    return malloc_impl(size, KERNEL);
 }
 
 /* Libera un bloque de memoria asignado previamente por Buddy System. */

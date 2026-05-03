@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define KERNEL 1
+#define USER 0
+
 /* Estructura para reportar el estado de la memoria. Ambos managers deben usar la misma estructura. */
 typedef struct {
     uint64_t total;         /* Bytes totales administrados. */ 
