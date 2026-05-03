@@ -106,8 +106,8 @@ int process_create(const char *name, ProcessEntry entry,
 
     PCB *p = &process_table[slot];
 
-    // Asignar stack
-    p->stack_base = (uint64_t *)mm_malloc(STACK_SIZE);
+    // Asignar stack (kernel-internal: no se contabiliza en alloc_count del usuario)
+    p->stack_base = (uint64_t *)mm_malloc_kernel(STACK_SIZE);
     if (p->stack_base == NULL) return -1;
 
     // Construir frame inicial

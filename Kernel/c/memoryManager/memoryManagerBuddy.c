@@ -20,7 +20,8 @@
 typedef struct{
     uint8_t order;      /* Potencia de 2.*/
     uint8_t is_free;    /* Flag de disponibilidad. */
-    uint8_t _pad[6];    /* Relleno para alinear a 8 bytes. */
+    uint8_t is_kernel;  /* 1 si fue asignado internamente por el kernel. */
+    uint8_t _pad[5];    /* Relleno para alinear a 8 bytes. */
 }BlockHdr;             
 
 /* Bloque libre: reutiliza los primeros bytes del payload para el enlace. */ 
@@ -114,64 +115,55 @@ void mm_init(void *start, uint64_t size){
     }
 }
 
-/* 
-** Asigna un bloque de memoria de tamaño "size" bytes.
-** Retorna un puntero a la memoria asignada o NULL si no hay suficiente espacio.
-*/
-void *mm_malloc(uint64_t size) {
+static void *malloc_impl(uint64_t size, int is_kernel){
     if(size == 0 || heap_base == NULL){
         return NULL;
     }
 
-    /* Consigue el orden mas pequeno que pueda alojar el tamaño solicitado. */
-    int order = size_to_order(size + sizeof(BlockHdr)); 
-
+    int order = size_to_order(size + sizeof(BlockHdr));
     if(order < 0){
-        /* No hay suficiente espacio para alojar el tamaño solicitado. */
         return NULL;
     }
 
     int found = -1;
-
     for(int i = order; i <= MAX_ORDER; i++){
         if(free_lists[order_idx(i)] != NULL){
-            /* Hay un bloque disponible en esta lista. */
             found = i;
             break;
         }
     }
-
     if(found < 0){
-        /* No hay suficiente espacio para alojar el tamaño solicitado. */
         return NULL;
     }
-    
-    /* 
-    ** Agarra el primer bloque de la lista dentro de la posición found, 
-    ** y hace que el primero apunte al siguiente. 
-    */
+
     FreeNode *block = free_lists[order_idx(found)];
     free_lists[order_idx(found)] = block->next;
 
-    /* Divide itaretivamente un bloque mas grande hasta el order pedido. */
     while(found > order){
         found--;
-
-        /* La mitad superior se convierte en buddy libre. */
         FreeNode *buddy = (FreeNode *)((uintptr_t)block + ((uintptr_t)1 << found));
         buddy->hdr.order = (uint8_t)found;
         buddy->hdr.is_free = 1;
+        buddy->hdr.is_kernel = 0;
         buddy->next = free_lists[order_idx(found)];
         free_lists[order_idx(found)] = buddy;
-
-        /* La mitad inferior sigue el ciclo de split. */
         block->hdr.order = (uint8_t)found;
     }
 
     block->hdr.is_free = 0;
-    alloc_count++;
+    block->hdr.is_kernel = (uint8_t)is_kernel;
+    if(!is_kernel)
+        alloc_count++;
 
     return (void *)((uintptr_t)block + sizeof(BlockHdr));
+}
+
+void *mm_malloc(uint64_t size){
+    return malloc_impl(size, 0);
+}
+
+void *mm_malloc_kernel(uint64_t size){
+    return malloc_impl(size, 1);
 }
 
 /* Libera un bloque de memoria asignado previamente por Buddy System. */
@@ -184,8 +176,9 @@ void mm_free(void *ptr){
     FreeNode *block = (FreeNode *)((uintptr_t)ptr - sizeof(BlockHdr));
 
     int order = block->hdr.order;
+    if(!block->hdr.is_kernel)
+        alloc_count--;
     block->hdr.is_free = 1;
-    alloc_count--;      /* Decremento contador global de asignaciones activas. */
 
     /* Coalescencia: absorber buddies libres del mismo order */
     while(order < MAX_ORDER){

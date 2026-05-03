@@ -5,8 +5,9 @@
 #include <stddef.h>
 
 typedef struct MemBlock {
-    uint64_t size;              /* Tamano del bloque (sin contar el header) */ 
+    uint64_t size;              /* Tamano del bloque (sin contar el header) */
     int is_free;                /* 1 si esta libre, 0 si esta asignado */
+    int is_kernel;              /* 1 si fue asignado internamente por el kernel */
     struct MemBlock* next;      /* Siguiente bloque en la lista */
 } MemBlock;
 
@@ -29,40 +30,46 @@ void mm_init(void *start, uint64_t size){
     heap_start->next = NULL;
 }
 
-void *mm_malloc(uint64_t size){
+static void *malloc_impl(uint64_t size, int is_kernel){
     if(size == 0 || heap_start == NULL){
         return NULL;
     }
 
-    /* Alinear a 8 bytes para evitar accesos desalineados. */ 
+    /* Alinear a 8 bytes para evitar accesos desalineados. */
     size = (size + 7) & ~(uint64_t)7;
 
-    MemBlock* block = heap_start;   /* Itero desde donde arranca el heap. */
+    MemBlock* block = heap_start;
 
     while(block != NULL){
         if(block->is_free && block->size >= size){
-            /* Tengo espacio en el bloque para alocar el size. */
-
-            if (block->size >= size + MIN_SPLIT){
+            if(block->size >= size + MIN_SPLIT){
                 /* Split si sobra suficiente espacio para un bloque nuevo. */
-
-                MemBlock* split = (MemBlock *)((uint8_t *)(block + 1) + size);  /* +1 para saltar el header. */
+                MemBlock* split = (MemBlock *)((uint8_t *)(block + 1) + size);
                 split->size = block->size - size - sizeof(MemBlock);
                 split->is_free = 1;
+                split->is_kernel = 0;
                 split->next = block->next;
                 block->size = size;
                 block->next = split;
             }
 
             block->is_free = 0;
-            return (void*)(block + 1);     /* Devuelvo la direccion "allocable" sin header. */
+            block->is_kernel = is_kernel;
+            return (void*)(block + 1);
         }
 
-        /* Itero al siguiente bloque. */
         block = block->next;
     }
 
     return NULL;
+}
+
+void *mm_malloc(uint64_t size){
+    return malloc_impl(size, 0);
+}
+
+void *mm_malloc_kernel(uint64_t size){
+    return malloc_impl(size, 1);
 }
 
 void mm_free(void *ptr){
@@ -108,11 +115,12 @@ void mm_status(MemStatus* status){
     while(block != NULL){
         status->total += block->size;
 
-        if (block->is_free){
+        if(block->is_free){
             status->free += block->size;
         }else{
             status->used += block->size;
-            status->alloc_count++;
+            if(!block->is_kernel)
+                status->alloc_count++;
         }
         /* Avanzo en el heap hacia el siguiente bloque. */
         block = block->next;

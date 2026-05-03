@@ -17,6 +17,11 @@ void mm_init(void *start, uint64_t size);
 /* Reserva 'size' bytes. Retorna NULL si no hay espacio. */
 void *mm_malloc(uint64_t size);
 
+/* Igual que mm_malloc pero marca el bloque como interno del kernel: no se
+   contabiliza en alloc_count, de modo que mm_status refleje solo las
+   allocaciones hechas por el usuario (via sys_malloc). */
+void *mm_malloc_kernel(uint64_t size);
+
 /* Libera el bloque apuntado por 'ptr'. Si ptr es NULL, no hace nada. */
 void mm_free(void *ptr);
 
